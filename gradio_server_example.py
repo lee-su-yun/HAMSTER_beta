@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 from matplotlib import cm
 import os
+import socket
 
 from datetime import datetime
 
@@ -13,12 +14,31 @@ GRIPPER_CLOSE = 0
 GRIPPER_OPEN = 1
 MODEL = "VILA1.5-13b-robopoint_1432k+rlbench_all_tasks_256_1000_eps_sketch_v5_alpha+droid_train99_sketch_v5_alpha_fix+bridge_data_v2_train90_10k_sketch_v5_alpha-e1-LR1e-5"
 
-# Attempt to load the server IP from file at the beginning.
-try:
-    with open(os.path.expanduser("~/workspace/VLM_official/ip_eth0.txt"), "r") as f:
-        SERVER_IP = f.read().strip()
-except Exception:
-    SERVER_IP = "10.49.165.221"  # Fallback to default IP
+def is_valid_ip(ip):
+    try:
+        socket.inet_aton(ip)
+        return True
+    except socket.error:
+        return False
+
+def get_server_ip():
+    # Try to load the server IP from file
+    ip_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ip_eth0.txt")
+    if os.path.exists(ip_file):
+        try:
+            with open(ip_file, "r") as f:
+                ip = f.read().strip()
+                if ip and is_valid_ip(ip):
+                    print(f"Using IP from ip_eth0.txt: {ip}")
+                    return ip
+        except Exception as e:
+            print(f"Error reading ip_eth0.txt: {e}")
+    
+    # Fall back to localhost
+    print("Using localhost as fallback")
+    return "localhost"
+
+SERVER_IP = get_server_ip()
 
 def preprocess_image(image, crop_type):
     """Process the image by either stretching or center cropping."""
@@ -29,7 +49,8 @@ def preprocess_image(image, crop_type):
         start_y = (height - crop_size) // 2
         image = image[start_y:start_y + crop_size, start_x:start_x + crop_size]
     return image
-def annotate_and_save_image(image, quest):
+
+def annotate_image(image, quest):
     """
     Annotate the given image by overlaying the quest (prompt) text in the top-left corner,
     then save the image with a timestamp in the filename.
@@ -48,11 +69,6 @@ def annotate_and_save_image(image, quest):
     # Overlay the quest text on top of the rectangle
     cv2.putText(image, quest, (10, 5 + text_h), font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
     
-    # Save the annotated image with a timestamp
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"user_results/result_image_{timestamp}.jpg"
-    cv2.imwrite(filename, cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-    print(f"Result image saved as {filename}")
     return image
 
 def draw_lines_on_image_cv(image, points, draw_action=False, num_subdivisions=100):
@@ -147,9 +163,7 @@ def send_request(image, quest, max_tokens, temperature, top_p):
     _, encoded_image_array = cv2.imencode('.jpg', image)
     encoded_image = base64.b64encode(encoded_image_array.tobytes()).decode('utf-8')
     print(quest)
-    # Try to send request using the IP loaded at startup.
-    with open(os.path.expanduser("~/workspace/VLM_official/ip_eth0.txt"), "r") as f:
-        SERVER_IP = f.read().strip()
+    
     try:
         client = OpenAI(base_url=f"http://{SERVER_IP}:8000", api_key="fake-key")
         response = client.chat.completions.create(
@@ -188,14 +202,14 @@ def process_image_and_quest(image, quest, max_tokens, temperature, top_p, crop_t
         output_image = draw_lines_on_image_cv(image.copy(), points, draw_action=True)
     except:
         output_image = image
-    annotated_image = annotate_and_save_image(output_image.copy(), quest)
+    annotated_image = annotate_image(output_image, quest)
     return annotated_image, response_text
 
 # Define examples as a list of inputs.
 examples = [
-    ["examples/example3.png", "Move the S to the plate the arrow is pointing at"],
-    ["examples/example6.jpg", "open the top drawer"],
-    ["examples/example7.jpg", "Have the middle block on Jensen Huang"],
+    ["examples/ocr_reasoning.jpg", "Move the S to the plate the arrow is pointing at"],
+    ["examples/non_prehensile.jpg", "open the top drawer"],
+    ["examples/spatial_world_knowledge.jpg", "Have the middle block on Jensen Huang"]
 ]
 
 with gr.Blocks() as demo:

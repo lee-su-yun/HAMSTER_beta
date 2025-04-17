@@ -4,8 +4,12 @@
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 
-# Store IP address
-ifconfig eth0 | grep 'inet ' | awk '{print $2}' > ip_eth0.txt
+# Check if save_ip parameter is provided
+if [ "$1" == "save_ip" ]; then
+    # Store IP address
+    ifconfig eth0 | grep 'inet ' | awk '{print $2}' > ip_eth0.txt
+    echo "IP address saved to ip_eth0.txt"
+fi
 
 # Clone the model from Hugging Face
 git lfs install
