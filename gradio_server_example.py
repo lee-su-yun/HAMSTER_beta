@@ -6,40 +6,21 @@ import cv2
 import numpy as np
 from matplotlib import cm
 import os
-import socket
 
 from datetime import datetime
 
 GRIPPER_CLOSE = 0
 GRIPPER_OPEN = 1
-MODEL = "VILA1.5-13b-robopoint_1432k+rlbench_all_tasks_256_1000_eps_sketch_v5_alpha+droid_train99_sketch_v5_alpha_fix+bridge_data_v2_train90_10k_sketch_v5_alpha-e1-LR1e-5"
+MODEL = "Hamster_dev"
 
-def is_valid_ip(ip):
-    try:
-        socket.inet_aton(ip)
-        return True
-    except socket.error:
-        return False
-
-def get_server_ip():
-    # Try to load the server IP from file
-    ip_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ip_eth0.txt")
-    if os.path.exists(ip_file):
-        try:
-            with open(ip_file, "r") as f:
-                ip = f.read().strip()
-                if ip and is_valid_ip(ip):
-                    print(f"Using IP from ip_eth0.txt: {ip}")
-                    return ip
-        except Exception as e:
-            print(f"Error reading ip_eth0.txt: {e}")
-    
-    # Fall back to localhost
-    print("Using localhost as fallback")
-    return "localhost"
-
-SERVER_IP = get_server_ip()
-
+# Attempt to load the server IP from file at the beginning.
+server_ip_file = "./ip_eth0.txt"
+try:
+    with open(os.path.expanduser(f"{server_ip_file}"), "r") as f:
+        SERVER_IP = f.read().strip()
+except Exception:
+    SERVER_IP = "127.0.0.1"  # Fallback to default IP
+print("connection to server: ", SERVER_IP)
 def preprocess_image(image, crop_type):
     """Process the image by either stretching or center cropping."""
     height, width, _ = image.shape
@@ -163,7 +144,9 @@ def send_request(image, quest, max_tokens, temperature, top_p):
     _, encoded_image_array = cv2.imencode('.jpg', image)
     encoded_image = base64.b64encode(encoded_image_array.tobytes()).decode('utf-8')
     print(quest)
-    
+    # Try to send request using the IP loaded at startup.
+    with open(os.path.expanduser(f"{server_ip_file}"), "r") as f:
+        SERVER_IP = f.read().strip()
     try:
         client = OpenAI(base_url=f"http://{SERVER_IP}:8000", api_key="fake-key")
         response = client.chat.completions.create(
@@ -202,7 +185,7 @@ def process_image_and_quest(image, quest, max_tokens, temperature, top_p, crop_t
         output_image = draw_lines_on_image_cv(image.copy(), points, draw_action=True)
     except:
         output_image = image
-    annotated_image = annotate_image(output_image, quest)
+    annotated_image = annotate_image(output_image.copy(), quest)
     return annotated_image, response_text
 
 # Define examples as a list of inputs.

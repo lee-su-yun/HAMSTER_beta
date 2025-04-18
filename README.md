@@ -8,7 +8,7 @@ This project depends on the following external repositories and resources:
 
 1. **VILA Repository**
    - Source: [NVlabs/VILA](https://github.com/NVlabs/VILA)
-   - Required Commit: `a5a380d6d09762d6f3fd0443aac6b475fba84f7e`
+   - Required Commit: `da98f3b`
    - Usage: Used as a base for the vision-language model implementation
    - Note: This is an external dependency and should be cloned separately
 
@@ -24,7 +24,6 @@ This project depends on the following external repositories and resources:
 ├── server.py              # Custom server implementation
 ├── setup_server.sh        # Setup and launch script
 ├── gradio_server_example.py  # Example Gradio interface
-├── requirements.txt       # Additional dependencies for HAMSTER
 ├── ip_eth0.txt           # Stores the server IP address
 └── VILA/                  # External VILA repository (not included)
     └── ...
@@ -51,15 +50,14 @@ cd ..
 3. Set up the VILA environment:
 ```bash
 cd VILA
-conda create -n vila python=3.10 -y
+./environment_setup.py vila
 conda activate vila
-pip install -e .
 cd ..
 ```
 
-4. Install additional dependencies for HAMSTER:
+4. Install additional packages for the Gradio interface:
 ```bash
-pip install -r requirements.txt
+pip install gradio openai opencv-python matplotlib numpy
 ```
 
 ### Running the Server
